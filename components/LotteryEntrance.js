@@ -5,6 +5,7 @@ import { abi, contractAddresses } from "../constants"
 import { useMoralis } from "react-moralis"
 import { useEffect, useState } from "react"
 import { ethers } from "ethers"
+import { useNotification } from "web3uikit" //hook
 
 export default function LotteryEntrance() {
     const { chainId: chainIdHex, isWeb3Enabled } = useMoralis()
@@ -12,8 +13,7 @@ export default function LotteryEntrance() {
     const raffleAddress = chainId in contractAddresses ? contractAddresses[chainId][0] : null
     const [entranceFee, setEntranceFee] = useState("0")
 
-    console.log("TEST", chainIdHex, raffleAddress)
-    console.log("chainIdHex", parseInt(chainIdHex))
+    const dispatch = useNotification() //comes from useNotification, popup
     const { runContractFunction: enterRaffle } = useWeb3Contract({
         abi: abi,
         contractAddress: raffleAddress, //specify networkId
@@ -35,11 +35,25 @@ export default function LotteryEntrance() {
             async function updateUI() {
                 const entranceFeeFromCall = (await getEntranceFee()).toString()
                 setEntranceFee(entranceFeeFromCall)
-                console.log(entranceFee)
             }
             updateUI()
         }
     }, [isWeb3Enabled])
+
+    const handleSuccess = async function (tx) {
+        await tx.wait(1) //wait for the tx to go through
+        handleNewNotification(tx)
+    }
+
+    const handleNewNotification = function () {
+        dispatch({
+            type: "info",
+            message: "Transaction Complete!",
+            title: "Tx Notification",
+            position: "topR",
+            icon: "bell",
+        })
+    }
 
     return (
         <div>
@@ -48,7 +62,10 @@ export default function LotteryEntrance() {
                     {" "}
                     <button
                         onClick={async function () {
-                            await enterRaffle()
+                            await enterRaffle({
+                                onSuccess: handleSuccess,
+                                onError: (error) => console.log(error),
+                            })
                         }}
                     >
                         Enter Raffle
